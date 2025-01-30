@@ -13,9 +13,6 @@ import {
 } from '@heroui/table';
 import { Slide, ToastContainer } from 'react-toastify';
 import { errorToast, successToast } from '@/lib/utils';
-import 'react-quill/dist/quill.snow.css';
-import ReactQuill from 'react-quill-new';
-import 'quill/dist/quill.core.css';
 import Confirmation from './Confirmation';
 
 interface Article {
@@ -400,13 +397,8 @@ const ArticleSection = () => {
               >
                 Content
               </label>
-              <ReactQuill
-                className='mb-10'
-                theme='snow'
-                value={newContent}
-                onChange={setNewContent}
-              />
-              {/* <textarea
+          
+              <textarea
                 id='content'
                 required
                 value={newContent}
@@ -419,7 +411,7 @@ const ArticleSection = () => {
                 className='w-full resize-none overflow-hidden rounded border p-2'
                 placeholder='Enter content'
                 style={{ minHeight: '150px' }} // Optional: Set a minimum height for better UX
-              /> */}
+              />
             </div>
 
             {/* Dropdown untuk memilih kategori */}
@@ -509,13 +501,7 @@ const ArticleSection = () => {
               >
                 Content
               </label>
-              <ReactQuill
-                className='mb-10'
-                theme='snow'
-                value={newContent}
-                onChange={setNewContent}
-              />
-              {/* <textarea
+               <textarea
                 id='content'
                 value={newContent}
                 onChange={(e) => setNewContent(e.target.value)}
@@ -527,7 +513,7 @@ const ArticleSection = () => {
                 className='w-full resize-none overflow-hidden rounded border p-2'
                 placeholder='Enter content'
                 style={{ minHeight: '150px' }} // Optional: Set a minimum height for better UX
-              /> */}
+              />
             </div>
 
             <div className='flex flex-col gap-y-2'>
