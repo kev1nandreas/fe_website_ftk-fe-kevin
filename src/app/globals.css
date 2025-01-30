@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (max-width: 640px) {
+  table {
+    display: block;
+  }
+  thead {
+    display: none;
+  }
+  tbody,
+  tr {
+    display: block;
+    width: 100%;
+  }
+  td {
+    display: block;
+    width: 100%;
+    text-align: right;
+    position: relative;
+    padding-left: 50%;
+  }
+  td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0;
+    width: 50%;
+    padding-left: 10px;
+    font-weight: bold;
+    text-align: left;
+  }
+}
+
+* {
+  scroll-behavior: smooth;
+  scroll-margin-top: 6rem;
+}
+
+body {
+  background-color: #f0f0f0;
+  min-height: 100vh;
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
