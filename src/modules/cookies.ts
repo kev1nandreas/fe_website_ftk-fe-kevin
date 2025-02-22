@@ -1,22 +1,22 @@
-"use server";
+'use server';
 
-import type { ENV } from "@/configs/environment";
-import { cookies } from "next/headers";
+import type { ENV } from '@/configs/environment';
+import { cookies } from 'next/headers';
 
-type NameCookies = typeof ENV.TOKEN_KEY | "g_token" | "bg" | "text" | "style";
+type NameCookies = typeof ENV.TOKEN_KEY | 'g_token' | 'bg' | 'text' | 'style';
 interface CookiesProps {
-	name: NameCookies;
-	data: string;
+  name: NameCookies;
+  data: string;
 }
 
 export async function createCookies(props: CookiesProps) {
-	(await cookies()).set(props?.name, props?.data, { secure: true });
+  (await cookies()).set(props?.name, props?.data);
 }
 
-export async function getCookies(name: CookiesProps["name"]) {
-	return (await cookies()).get(name);
+export async function getCookies(name: CookiesProps['name']) {
+  return (await cookies()).get(name);
 }
 
-export async function removeCookies(name: CookiesProps["name"]) {
-	(await cookies()).delete(name);
+export async function removeCookies(name: CookiesProps['name']) {
+  (await cookies()).delete(name);
 }

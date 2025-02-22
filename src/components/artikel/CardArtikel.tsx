@@ -1,76 +1,50 @@
 'use client';
 
-import React, { use, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FaCalendarAlt } from 'react-icons/fa';
 import { FaTag } from 'react-icons/fa6';
-import {
-  Pagination,
-} from '@heroui/pagination';
 import { parseDate } from '@/lib/utils';
-
-interface Article {
-  category: any;
-  id: string;
-  title: string;
-  content: string;
-  image: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import { useFetchArticles } from '@/app/api/useFetchArticle';
+import { typecastArticle } from '@/types/article';
+import Pagination from '@mui/material/Pagination';
+import CircularProgress from '@mui/material/CircularProgress';
 
 export default function Artikel() {
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [totalPages, setTotalPages] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(1);
+  function useDebounce<T>(value: T, delay?: number): T {
+    const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+    useEffect(() => {
+      const timer = setTimeout(() => setDebouncedValue(value), delay || 500);
+      return () => clearTimeout(timer);
+    }, [value, delay]);
+
+    return debouncedValue;
+  }
+
+  const [limit, setLimit] = useState<number>(6);
+  const [page, setPage] = useState<number>(1);
   const [keyword, setKeyword] = useState<string>('');
+  const debouncedSearch = useDebounce(keyword, 500);
   const imageBaseUrl = process.env.NEXT_PUBLIC_BASE_IMAGE_URL;
+  const {
+    data: articlesData,
+    refetch: refetchArticles,
+    isLoading,
+    error,
+  } = useFetchArticles(limit, page, debouncedSearch);
+
+  const articles = typecastArticle(articlesData?.data?.articles) || [];
 
   useEffect(() => {
-    const fetchArticles = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(
-          `/articles/?page=${currentPage}&limit=6&search=${keyword}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
-
-        console.log('response', response);
-
-        if (response.status === 401) {
-          setError('Unauthorized. Please check your token.');
-          return;
-        }
-
-        const result = await response.json();
-
-        if (result.status === 'success') {
-          setTotalPages(result.data.totalPage);
-          setArticles(result.data.articles);
-        } else {
-          setError(`Error: ${result.message}`);
-          console.log('result.message');
-        }
-      } catch (error) {
-        setError('Error fetching articles');
-        console.error('Error fetching articles:', error);
-      }
-    };
-    fetchArticles();
-  }, [currentPage, keyword]);
+    refetchArticles();
+  }, [page, debouncedSearch]);
 
   return (
     <div>
       <div className='px-5 mt-6 flex items-center justify-center'>
         <input
           type='text'
-          placeholder='Cari Artikel...'
+          placeholder='Cari Kata Kunci...'
           className='mt-2 h-10 w-[50rem] rounded-full border-2 border-gray-300 px-4 focus:border-yellow-main focus:outline-none'
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
@@ -133,21 +107,31 @@ export default function Artikel() {
         ))}
       </div>
 
-      {articles.length === 0 && (
+      {articles.length === 0 && !isLoading && !error && (
         <div>
           <h1 className='text-center my-8 text-xl'>No articles found</h1>
+        </div>
+      )}
+
+      {isLoading && (
+        <div className='flex justify-center my-8 items-center gap-4'>
+          <CircularProgress size="30px" />
+          <p>Memuat...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className='flex justify-center my-8 text-red-500'>
+          <p>Error: {error.message}</p>
         </div>
       )}
 
       {/* Pagination */}
       <div className='flex justify-center my-6'>
         <Pagination
-          loop
-          showControls
-          color={'warning'}
-          initialPage={1}
-          total={totalPages}
-          onChange={setCurrentPage}
+          count={articlesData?.data?.totalPage || 0}
+          page={page}
+          onChange={(_, page: number) => setPage(page)}
         />
       </div>
     </div>

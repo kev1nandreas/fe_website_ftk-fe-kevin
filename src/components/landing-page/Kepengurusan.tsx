@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import SlideButton from './SlideButton';
+import SlideButton from './SlideButton/SlideButton';
 import { Autoplay } from 'swiper/modules';
 
 import 'swiper/css';
@@ -11,6 +11,8 @@ import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 import { pengurus } from '@/lib/data';
 import { PopUpDesc } from './PopUpDesc';
+import LeftSlideButton from './SlideButton/LeftSlideButton';
+import RightSlideButton from './SlideButton/RightSlideButton';
 
 interface Pengurus {
   abbreviation: string;
@@ -53,7 +55,8 @@ const Kepengurusan = () => {
             speed={2000}
             modules={[Autoplay]}
           >
-            <SlideButton />
+            <LeftSlideButton/>
+            <RightSlideButton/>
 
             {/* PopUpDesc Component */}
             {isPopUpOpen && (

@@ -2,7 +2,7 @@
 
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay } from 'swiper/modules';
-import SlideButton from './SlideButton';
+import SlideButton from './SlideButton/SlideButton';
 
 import 'swiper/css';
 import 'swiper/css/pagination';

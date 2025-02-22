@@ -1,89 +1,29 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { parseDate } from '@/lib/utils';
 import { FaTag } from 'react-icons/fa6';
-import Image from 'next/image';
 import Loading from '@/app/loading';
-
-interface Article {
-  id: string;
-  title: string;
-  content: string;
-  image: string | null;
-  createdAt: string;
-  updatedAt: string;
-  category: Category;
-}
-
-interface Category {
-  id: number;
-  name: string;
-}
+import { fetchArticleByID, useFetchArticles } from '@/app/api/useFetchArticle';
+import { typecastArticle } from '@/types/article';
 
 const Content = () => {
-  const [article, setArticle] = useState<Article | null>(null);
-  const [category, setCategory] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [recommendedArticles, setRecommendedArticles] = useState<Article[]>([]);
   const { id } = useParams();
+  const idArtikel = id as string;
+  const { data: articleData } = fetchArticleByID(idArtikel);
+  const { data: recommendedData } = useFetchArticles(11, 1);
 
-  // Fetch artikel yang sedang dibaca
-  useEffect(() => {
-    const fetchArticle = async () => {
-      try {
-        const res = await fetch(
-          `/articles/${id}`,
-        );
-        const data = await res.json();
-
-        if (data.status === 'success') {
-          setArticle(data.data);
-        } else {
-          setError('Failed to load article');
-        }
-      } catch (err) {
-        setError('Error fetching article');
-        console.error(err);
-      }
-    };
-    console.log(id);
-
-    if (id) {
-      fetchArticle();
-    }
-  }, [id]);
-
-  // Fetch semua artikel untuk rekomendasi
-  useEffect(() => {
-    const fetchRecommendedArticles = async () => {
-      try {
-        const res = await fetch(
-          `/articles`,
-        );
-        const data = await res.json();
-
-        if (data.status === 'success') {
-          const articles = data.data.articles.filter(
-            (item: Article) => item.id !== id,
-          );
-
-          setRecommendedArticles(articles);
-        } else {
-          setError('Failed to load recommended articles');
-        }
-      } catch (err) {
-        console.error('Error fetching recommended articles:', err);
-      }
-    };
-
-    fetchRecommendedArticles();
-  }, [id]);
+  const article = articleData?.data || null;
+  const recommendedArticles =
+    recommendedData?.data?.articles.map(typecastArticle) || [];
 
   if (error) return <p className='text-center text-red-600'>{error}</p>;
   if (!article) return <Loading />;
+
+  console.log(article);
 
   return (
     <div className='mx-auto max-w-6xl p-8'>
@@ -97,11 +37,9 @@ const Content = () => {
           <p className='mb-2 text-sm text-gray-500'>
             Diposting pada {parseDate(article.createdAt)}
           </p>
-          {category && (
-            <p className='mb-6 text-sm text-gray-500'>
-              <span className='font-semibold'>{category}</span>
-            </p>
-          )}
+          <p className='mb-6 text-sm text-gray-500'>
+            <span className='font-semibold'>{article.category.name}</span>
+          </p>
 
           <div className='clearfix'>
             {article.image && (
@@ -134,7 +72,7 @@ const Content = () => {
         <aside className='rounded-md'>
           <h2 className='mb-4 text-2xl font-bold'>Artikel Terbaru Lainnya</h2>
           <div className='flex flex-col gap-4 flex-wrap'>
-            {recommendedArticles.slice(0, 10).map((recommended) => (
+            {recommendedArticles.slice(0, 10).map((recommended: any) => (
               <div
                 key={recommended.id}
                 className='rounded-md bg-white p-4 shadow w-[25rem]'

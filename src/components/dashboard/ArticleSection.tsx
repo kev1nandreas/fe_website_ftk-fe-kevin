@@ -1,8 +1,9 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import React, { useEffect, useState } from 'react';
 import { FaPlus, FaTrashAlt, FaEdit } from 'react-icons/fa';
-import { Pagination } from '@heroui/pagination';
+import Pagination from '@mui/material/Pagination';
 import {
   Table,
   TableHeader,
@@ -11,251 +12,191 @@ import {
   TableRow,
   TableCell,
 } from '@heroui/table';
-import { Slide, ToastContainer } from 'react-toastify';
-import { errorToast, successToast } from '@/lib/utils';
+import { Spinner } from '@heroui/spinner';
+import 'react-quill/dist/quill.snow.css';
+const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
+import 'quill/dist/quill.core.css';
 import Confirmation from './Confirmation';
-
-interface Article {
-  category: Category;
-  id: string;
-  title: string;
-  content: string;
-  image: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Category {
-  id: string;
-  name: string;
-}
+import { useFetchArticles } from '@/app/api/useFetchArticle';
+import { Article, typecastArticle, typecastCategory } from '@/types/article';
+import { z } from 'zod';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import toast from 'react-hot-toast';
+import { parseDateShort } from '@/lib/utils';
+import { PopUpArticle } from './PopUpArticle';
+import { IoIosInformationCircleOutline } from 'react-icons/io';
+import { fetchCategories } from '@/app/admin/kategori/api/useCategory';
+import {
+  createArticle,
+  deleteArticle,
+  editArticle,
+  parseFormData,
+} from '@/app/admin/artikel/api/useArticlesCUD';
+import CircularProgress from '@mui/material/CircularProgress';
 
 const ArticleSection = () => {
-  const [articles, setArticles] = useState<Article[]>([]);
+  function useDebounce<T>(value: T, delay?: number): T {
+    const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+    useEffect(() => {
+      const timer = setTimeout(() => setDebouncedValue(value), delay || 500);
+      return () => clearTimeout(timer);
+    }, [value, delay]);
+
+    return debouncedValue;
+  }
+
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState<Article | null>(null);
-  const [newTitle, setNewTitle] = useState('');
-  const [newContent, setNewContent] = useState('');
-  const [newImage, setNewImage] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
   const [keyword, newKeyword] = useState('');
+  const [showTooltip, setShowTooltip] = useState(false);
+  const debouncedSearch = useDebounce(keyword, 500);
   const [isOpenPopUp, setIsOpenPopUp] = useState('');
-
-  const [totalPages, setTotalPages] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState('');
-
-  const fetchArticles = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `/articles/?page=${currentPage}&limit=6&search=${keyword}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      if (response.status === 401) {
-        errorToast('Unauthorized. Please check your token.');
-        return;
-      }
-
-      const result = await response.json();
-
-      if (result.status === 'success') {
-        setTotalPages(result.data.totalPage);
-        setArticles(result.data.articles);
-      } else {
-        errorToast(`Error: ${result.message}`);
-      }
-    } catch (error) {
-      errorToast(`Error fetching articles: ${error}`);
-      console.error('Error fetching articles:', error);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch(
-        `/categories`,
-        {
-          method: 'GET',
-        },
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        setCategories(result.data.categories);
-      } else {
-        const errorResult = await response.json();
-        errorToast(`Error: ${errorResult.message}`);
-      }
-    } catch (error) {
-      errorToast(`Error fetching categories: ${error}`);
-    }
-  };
+  const [isOpenDesc, setIsOpenDesc] = useState<Article | null>(null);
+  const [limit, setLimit] = useState(5);
+  const [page, setPage] = useState(1);
+  const {
+    data: articlesData,
+    refetch: refetchArticles,
+    isLoading: isLoadingArticles,
+    error
+  } = useFetchArticles(limit, page, debouncedSearch);
+  const { data: categoriesData } = fetchCategories();
+  const articles = typecastArticle(articlesData?.data?.articles) || [];
+  const categories = typecastCategory(categoriesData?.data?.categories);
 
   useEffect(() => {
-    fetchArticles();
-  }, [currentPage, keyword]);
-
-  const handleDelete = async (id: string) => {
-    setIsOpenPopUp('');
-    try {
-      const token = localStorage.getItem('token');
-
-      const response = await fetch(
-        `/articles/${id}`,
-        {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      const result = await response.json();
-      if (result.status === 'success') {
-        successToast('Artikel berhasil dihapus!');
-        setArticles(articles.filter((article) => article.id !== id.toString()));
-      } else {
-        errorToast(`Error: ${result.message}`);
-      }
-    } catch (error) {
-      errorToast(`Failed to delete article: ${error}`);
-      console.error('Failed to delete article:', error);
-    }
-  };
-
-  const handleCreateArticle = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const formData = new FormData();
-      formData.append('title', newTitle);
-      formData.append('content', newContent);
-      if (newImage) {
-        formData.append('image', newImage);
-      }
-      formData.append('categoryId', selectedCategory);
-
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `/articles`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        },
-      );
-
-      const result = await response.json();
-      if (result.status === 'success') {
-        successToast('Artikel berhasil dibuat!');
-        setIsCreating(false);
-        setArticles([result.data, ...articles.slice(0, 4)]);
-      } else {
-        errorToast(`Error: ${result.message}`);
-      }
-    } catch (error) {
-      errorToast(`Failed to create article: ${error}`);
-    }
-  };
+    refetchArticles();
+  }, [debouncedSearch, page]);
 
   useEffect(() => {
     if (isEditing) {
-      setNewTitle(isEditing.title);
-      setNewContent(isEditing.content);
-      setSelectedCategory(isEditing.category.id || '');
-      fetchCategories();
+      resetEdit({
+        title: isEditing.title,
+        content: isEditing.content,
+        categoryId: isEditing.category.id,
+        image: undefined,
+      });
     }
   }, [isEditing]);
 
-  useEffect(() => {
-    if (isCreating) {
-      setNewTitle('');
-      setNewContent('');
-      setNewImage(null);
-      setSelectedCategory('');
-      fetchCategories();
+  const formSchema = z.object({
+    title: z.string().nonempty('Title is required'),
+    content: z.string().nonempty('Content is required'),
+    categoryId: z.string().nonempty('Category is required'),
+    image: z.instanceof(File).optional(),
+  });
+
+  type FormInputs = z.infer<typeof formSchema>;
+
+  const {
+    control: controlCreate,
+    handleSubmit: handleSubmitCreate,
+    formState: { errors: errorsCreate },
+    reset: resetCreate,
+  } = useForm<FormInputs>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: '',
+      content: '',
+      categoryId: '',
+      image: undefined,
+    },
+  });
+
+  const {
+    control: controlEdit,
+    handleSubmit: handleSubmitEdit,
+    formState: { errors: errorsEdit },
+    reset: resetEdit,
+  } = useForm<FormInputs>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: '',
+      content: '',
+      categoryId: '',
+      image: undefined,
+    },
+  });
+
+  const newArticle = createArticle({
+    onSuccess: () => {
+      toast.success('Artikel berhasil dibuat');
+      setIsCreating(false);
+      resetCreate();
+      refetchArticles();
+    },
+    onError: (error) => {
+      toast.error(error.message);
+      setLoading(false);
+    },
+  });
+
+  const renewArticle = editArticle({
+    onSuccess: () => {
+      toast.success('Artikel berhasil diubah');
+      setIsEditing(null);
+      refetchArticles();
+    },
+    onError: (error) => {
+      toast.error(error.message);
+      setLoading(false);
+    },
+  });
+
+  const removeArticle = deleteArticle({
+    onSuccess: () => {
+      toast.success('Artikel berhasil dihapus');
+      setIsOpenPopUp('');
+      refetchArticles();
+    },
+    onError: (error) => {
+      toast.error(error.message);
+      setLoading(false);
+    },
+  });
+
+  const onCreate = handleSubmitCreate(async (data) => {
+    setLoading(true);
+    const formdata = parseFormData(data);
+    await newArticle.mutateAsync(formdata);
+    setLoading(false);
+  });
+
+  const onEdit = handleSubmitEdit(async (data) => {
+    setLoading(true);
+    const formdata = parseFormData(data);
+    if (formdata.get('title') === isEditing?.title) {
+      formdata.delete('title');
     }
-  }, [isCreating]);
+    formdata.append('id', isEditing?.id || '');
+    await renewArticle.mutateAsync(formdata);
+    setLoading(false);
+  });
 
-  const handleEditArticle: (e: React.FormEvent) => Promise<void> = async (
-    e: React.FormEvent,
-  ) => {
-    e.preventDefault();
-    try {
-      if (!isEditing) return;
-
-      const formData = new FormData();
-
-      if (newTitle !== isEditing.title) formData.append('title', newTitle);
-      formData.append('content', newContent);
-      formData.append('categoryId', selectedCategory);
-      if (newImage) {
-        formData.append('image', newImage);
-      }
-
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `/articles/${isEditing.id}`,
-        {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        },
-      );
-
-      const result = await response.json();
-      console.log(result);
-      if (result.status === 'success') {
-        successToast('Artikel berhasil diubah!');
-        setIsEditing(null);
-        setArticles(
-          articles.map((article) =>
-            article.id === isEditing.id ? result.data : article,
-          ),
-        );
-      } else {
-        errorToast(`Error: ${result.message}`);
-      }
-    } catch (error) {
-      errorToast(`Failed to edit article: ${error}`);
-      console.error('Failed to edit article:', error);
-    }
+  const handleDelete = async (id: string) => {
+    setLoading(true);
+    await removeArticle.mutateAsync(id);
+    setLoading(false);
   };
 
   return (
     <div className='flex h-screen w-full overflow-y-auto flex-col items-center bg-slate-50 px-4 py-10 sm:w-4/5 sm:px-20'>
-      {/* Toast Container */}
-      <ToastContainer
-        position='top-right'
-        autoClose={4000}
-        limit={2}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick={false}
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme='light'
-        transition={Slide}
-      />
-
       {isOpenPopUp && (
         <Confirmation
           onCancel={() => setIsOpenPopUp('')}
           onConfirm={() => handleDelete(isOpenPopUp)}
           object='artikel'
+        />
+      )}
+
+      {isOpenDesc && (
+        <PopUpArticle
+          data={isOpenDesc}
+          isOpen={isOpenDesc}
+          onClose={() => setIsOpenDesc(null)}
         />
       )}
 
@@ -282,8 +223,8 @@ const ArticleSection = () => {
               name='keyword'
               id='keyword'
               value={keyword}
-              className='border-2 p-2 px-4 rounded-lg mt-4 w-[20rem] focus:border-yellow-main focus:outline-none'
-              placeholder='Search keyword... '
+              className='border-2 p-2 px-4 rounded-lg mt-4 w-[18rem] focus:border-yellow-main focus:outline-none'
+              placeholder='Cari kata kunci... '
               onChange={(e) => newKeyword(e.target.value)}
             />
           </div>
@@ -293,17 +234,32 @@ const ArticleSection = () => {
             <Table isStriped aria-label='Example table with dynamic content'>
               <TableHeader>
                 <TableColumn>No</TableColumn>
-                <TableColumn>Title</TableColumn>
-                <TableColumn>Content</TableColumn>
-                <TableColumn>Image</TableColumn>
-                <TableColumn>Action</TableColumn>
+                <TableColumn>Judul</TableColumn>
+                <TableColumn>Konten</TableColumn>
+                <TableColumn>Gambar</TableColumn>
+                <TableColumn>Tanggal dibuat</TableColumn>
+                <TableColumn>Aksi</TableColumn>
               </TableHeader>
-              <TableBody items={articles} emptyContent={'No rows to display.'}>
+              <TableBody
+                items={articles}
+                emptyContent={error ? `Error: ${error.message}`: 'Tidak ada artikel yang ditemukan' }
+                isLoading={isLoadingArticles}
+                loadingContent={
+                  <div className='flex justify-center my-8 items-center gap-4'>
+                    <CircularProgress size="30px" />
+                    <p>Memuat...</p>
+                  </div>
+                }
+              >
                 {(item: Article) => (
-                  <TableRow key={item.id}>
-                    <TableCell>{articles.indexOf(item) + 1}</TableCell>
-                    <TableCell>{item.title}</TableCell>
-                    <TableCell>
+                  <TableRow key={item.id} className='cursor-pointer'>
+                    <TableCell onClick={() => setIsOpenDesc(item)}>
+                      {limit * (page - 1) + articles.indexOf(item) + 1}
+                    </TableCell>
+                    <TableCell onClick={() => setIsOpenDesc(item)}>
+                      {item.title}
+                    </TableCell>
+                    <TableCell onClick={() => setIsOpenDesc(item)}>
                       <div
                         dangerouslySetInnerHTML={{
                           __html:
@@ -313,7 +269,7 @@ const ArticleSection = () => {
                         }}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={() => setIsOpenDesc(item)}>
                       {item.image ? (
                         <img
                           src={`${process.env.NEXT_PUBLIC_BASE_IMAGE_URL}/${item.image}`}
@@ -323,10 +279,13 @@ const ArticleSection = () => {
                           className='hidden lg:block w-[6rem] h-[6rem] rounded-md'
                         />
                       ) : (
-                        <div className='hidden lg:flex w-[6rem] h-[6rem] bg-gray-200 rounded-md items-center justify-center'>
-                          No Image
+                        <div className='hidden lg:flex w-[6rem] h-[6rem] bg-gray-200 rounded-md items-center justify-center text-center'>
+                          Tidak ada gambar
                         </div>
                       )}
+                    </TableCell>
+                    <TableCell onClick={() => setIsOpenDesc(item)}>
+                      {parseDateShort(item.createdAt)}
                     </TableCell>
                     <TableCell>
                       <div className='flex gap-3'>
@@ -353,20 +312,17 @@ const ArticleSection = () => {
           </div>
 
           {/* Pagination */}
-          <div className='flex justify-center mt-6'>
+          <div className='flex overflow-x-auto justify-center mt-6'>
             <Pagination
-              loop
-              showControls
-              color={'warning'}
-              initialPage={1}
-              total={totalPages}
-              onChange={setCurrentPage}
+              count={articlesData?.data?.totalPage}
+              page={page}
+              onChange={(_, value: number) => setPage(value)}
             />
           </div>
         </div>
       ) : isCreating ? (
         <form
-          onSubmit={handleCreateArticle}
+          onSubmit={onCreate}
           className='flex w-full flex-col gap-4 bg-white p-4 shadow sm:p-6'
         >
           <h2 className='font-secondary text-lg font-bold text-yellow-main sm:text-2xl'>
@@ -378,39 +334,34 @@ const ArticleSection = () => {
                 htmlFor='title'
                 className='font-secondary text-sm font-medium sm:text-lg'
               >
-                Title
+                Judul
               </label>
-              <input
-                id='title'
-                required
-                type='text'
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                className='w-full rounded border p-2'
-                placeholder='Enter title'
+              <Controller
+                name='title'
+                control={controlCreate}
+                render={({ field }) => (
+                  <input
+                    {...field}
+                    type='text'
+                    className='w-full rounded border p-2'
+                    placeholder='Enter title'
+                  />
+                )}
               />
             </div>
             <div className='flex flex-col gap-y-2'>
               <label
-                // htmlFor='content'
+                htmlFor='content'
                 className='font-secondary text-sm font-medium sm:text-lg'
               >
-                Content
+                Konten
               </label>
-          
-              <textarea
-                id='content'
-                required
-                value={newContent}
-                onChange={(e) => setNewContent(e.target.value)}
-                onInput={(e) => {
-                  (e.target as HTMLTextAreaElement).style.height = 'auto'; // Reset the height
-                  (e.target as HTMLTextAreaElement).style.height =
-                    (e.target as HTMLTextAreaElement).scrollHeight + 'px';
-                }}
-                className='w-full resize-none overflow-hidden rounded border p-2'
-                placeholder='Enter content'
-                style={{ minHeight: '150px' }} // Optional: Set a minimum height for better UX
+              <Controller
+                name='content'
+                control={controlCreate}
+                render={({ field }) => (
+                  <ReactQuill {...field} className='mb-10' theme='snow' />
+                )}
               />
             </div>
 
@@ -420,37 +371,64 @@ const ArticleSection = () => {
                 htmlFor='category'
                 className='font-secondary text-sm font-medium sm:text-lg'
               >
-                Category
+                Kategori
               </label>
-              <select
-                id='category'
-                required
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className='w-full rounded border p-2'
-              >
-                <option value=''>Pilih Kategori</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+              <Controller
+                name='categoryId'
+                control={controlCreate}
+                render={({ field }) => (
+                  <select
+                    {...field}
+                    id='category'
+                    required
+                    className='w-full rounded border p-2'
+                  >
+                    <option value=''>Pilih Kategori</option>
+                    {categories &&
+                      categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              />
             </div>
 
             <div className='flex flex-col gap-y-2'>
               <label
                 htmlFor='image'
-                className='font-secondary text-sm font-medium sm:text-lg'
+                className='font-secondary text-sm font-medium sm:text-lg flex items-center gap-x-2'
               >
-                Image
+                Gambar
+                <div
+                  className='relative'
+                  onMouseEnter={() => setShowTooltip(true)}
+                  onMouseLeave={() => setShowTooltip(false)}
+                >
+                  <IoIosInformationCircleOutline className='text-red-400' />
+                  {showTooltip && (
+                    <span className='absolute text-center bg-slate-400 text-white text-[10px] py-1 px-2 rounded-lg w-[12rem] bottom-5 left-2'>
+                      Hanya dapat memilih 1 gambar
+                    </span>
+                  )}
+                </div>
               </label>
-              <input
-                id='image'
-                type='file'
-                accept='image/*'
-                onChange={(e) => setNewImage(e.target.files?.[0] || null)}
-                className='w-full'
+              <Controller
+                name='image'
+                control={controlCreate}
+                render={({ field: { onChange } }) => (
+                  <input
+                    id='image'
+                    type='file'
+                    accept='image/*'
+                    className='w-full'
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      onChange(file);
+                    }}
+                  />
+                )}
               />
             </div>
           </div>
@@ -464,15 +442,16 @@ const ArticleSection = () => {
             </button>
             <button
               type='submit'
-              className='mt-4 rounded px-4 py-2 font-medium text-white bg-yellow-main hover:bg-yellow-700'
+              disabled={loading}
+              className={`mt-4 rounded px-4 py-2 font-medium text-white bg-yellow-main hover:bg-yellow-700 ${loading ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              Submit
+              Kirim
             </button>
           </div>
         </form>
       ) : isEditing ? (
         <form
-          onSubmit={handleEditArticle}
+          onSubmit={onEdit}
           className='flex w-full flex-col gap-4 bg-white p-4 shadow sm:p-6'
         >
           <h2 className='font-secondary text-lg font-bold text-yellow-main sm:text-2xl'>
@@ -484,35 +463,34 @@ const ArticleSection = () => {
                 htmlFor='title'
                 className='font-secondary text-sm font-medium sm:text-lg'
               >
-                Title
+                Judul
               </label>
-              <input
-                id='title'
-                type='text'
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                className='w-full rounded border p-2'
+              <Controller
+                name='title'
+                control={controlEdit}
+                render={({ field }) => (
+                  <input
+                    {...field}
+                    type='text'
+                    className='w-full rounded border p-2'
+                    placeholder='Enter title'
+                  />
+                )}
               />
             </div>
             <div className='flex flex-col gap-y-2'>
               <label
-                // htmlFor='content'
+                htmlFor='content'
                 className='font-secondary text-sm font-medium sm:text-lg'
               >
-                Content
+                Konten
               </label>
-               <textarea
-                id='content'
-                value={newContent}
-                onChange={(e) => setNewContent(e.target.value)}
-                onInput={(e) => {
-                  (e.target as HTMLTextAreaElement).style.height = 'auto'; // Reset the height
-                  (e.target as HTMLTextAreaElement).style.height =
-                    (e.target as HTMLTextAreaElement).scrollHeight + 'px'; // Adjust height to content
-                }}
-                className='w-full resize-none overflow-hidden rounded border p-2'
-                placeholder='Enter content'
-                style={{ minHeight: '150px' }} // Optional: Set a minimum height for better UX
+              <Controller
+                name='content'
+                control={controlEdit}
+                render={({ field }) => (
+                  <ReactQuill {...field} className='mb-10' theme='snow' />
+                )}
               />
             </div>
 
@@ -521,36 +499,63 @@ const ArticleSection = () => {
                 htmlFor='category'
                 className='font-secondary text-sm font-medium sm:text-lg'
               >
-                Category
+                Kategori
               </label>
-              <select
-                id='category'
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className='w-full rounded border p-2'
-              >
-                <option value=''>Pilih Kategori</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+              <Controller
+                name='categoryId'
+                control={controlEdit}
+                render={({ field }) => (
+                  <select
+                    {...field}
+                    id='category'
+                    className='w-full rounded border p-2'
+                  >
+                    <option value=''>Pilih Kategori</option>
+                    {categories &&
+                      categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              />
             </div>
 
             <div className='flex flex-col gap-y-2'>
               <label
                 htmlFor='image'
-                className='font-secondary text-sm font-medium sm:text-lg'
+                className='font-secondary text-sm font-medium sm:text-lg flex items-center gap-x-2'
               >
-                Image
+                Gambar
+                <div
+                  className='relative'
+                  onMouseEnter={() => setShowTooltip(true)}
+                  onMouseLeave={() => setShowTooltip(false)}
+                >
+                  <IoIosInformationCircleOutline className='text-red-400' />
+                  {showTooltip && (
+                    <span className='absolute text-center bg-slate-400 text-white text-[10px] py-1 px-2 rounded-lg w-[12rem] bottom-5 left-2'>
+                      Hanya dapat memilih 1 gambar
+                    </span>
+                  )}
+                </div>
               </label>
-              <input
-                id='image'
-                type='file'
-                accept='image/*'
-                onChange={(e) => setNewImage(e.target.files?.[0] || null)}
-                className='w-full'
+              <Controller
+                name='image'
+                control={controlEdit}
+                render={({ field: { onChange } }) => (
+                  <input
+                    id='image'
+                    type='file'
+                    accept='image/*'
+                    className='w-full'
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]; // Get the selected file
+                      onChange(file); // Pass file to React Hook Form
+                    }}
+                  />
+                )}
               />
             </div>
           </div>
@@ -564,9 +569,10 @@ const ArticleSection = () => {
             </button>
             <button
               type='submit'
-              className='mt-4 rounded px-4 py-2 font-medium text-white bg-yellow-main hover:bg-yellow-700'
+              disabled={loading}
+              className={`mt-4 rounded px-4 py-2 font-medium text-white bg-yellow-main hover:bg-yellow-700 ${loading ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              Submit
+              Kirim
             </button>
           </div>
         </form>

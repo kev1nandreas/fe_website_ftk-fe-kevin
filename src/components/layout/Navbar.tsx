@@ -4,26 +4,46 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { navbarContent } from '@/lib/data';
-import { HiMenuAlt3 } from "react-icons/hi";
+import { HiMenuAlt3 } from 'react-icons/hi';
+import { getCookies } from '@/modules/cookies';
+import { ENV } from '@/configs/environment';
+import { MdDashboard } from 'react-icons/md';
+import { IoLogIn } from 'react-icons/io5';
+import { usePathname } from 'next/navigation';
 
 const Navbar = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isOpened, setIsOpened] = useState(false);
+  const [hash, setHash] = useState('/');
+  const path = usePathname();
 
   const toggleMenu = () => {
     setIsOpened(!isOpened);
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      setIsLoggedIn(true);
-    }
+    const checkToken = async () => {
+      const token = await getCookies(ENV.TOKEN_KEY);
+      token ? setIsLoggedIn(true) : setIsLoggedIn(false);
+    };
+    checkToken();
+
+    path.startsWith('/artikel') && setHash('/artikel');
 
     const handleScroll = () => {
       window.scrollY > 0 ? setIsScrolled(true) : setIsScrolled(false);
+      if (!path.startsWith('/artikel')) {
+        window.scrollY >= 0 && setHash('/');
+        window.scrollY > 900 && setHash('/artikel');
+        window.scrollY > 1700 && setHash('/#tentang-kami');
+        window.scrollY > 3400 && setHash('/#kepengurusan');
+        window.scrollY > 4150 && setHash('/#galeri');
+        window.scrollY > 6400 && setHash('/#akademik');
+        window.scrollY > 6780 && setHash('/#kontak');
+      }
     };
+
     window.addEventListener('scroll', handleScroll);
 
     return () => window.removeEventListener('scroll', handleScroll);
@@ -52,27 +72,11 @@ const Navbar = () => {
             <Link
               key={index}
               href={item.link}
-              className='flex h-fit w-fit items-center justify-center px-4 py-2 font-secondary text-base font-medium text-base-nav hover:border-b-[3px] hover:text-yellow-main border-yellow-main transition-all}'
+              className={`flex h-fit w-fit items-center justify-center px-4 py-2 font-secondary text-base font-medium text-base-nav hover:border-b-[3px] select-none hover:text-yellow-main border-yellow-main transition-all ${hash === item.link ? 'border-b-[3px]' : ''}`}
             >
               {item.title}
             </Link>
           ))}
-
-          {isLoggedIn ? (
-            <Link
-              href='/login/dashboard'
-              className='flex h-fit w-32 rounded-md items-center justify-center bg-gradient-to-r from-yellow-dark-1 to-yellow-light-4 hover:from-yellow-light-4 hover:to-yellow-dark-1 px-4 py-2 font-secondary text-base font-medium text-white hover:bg-blue-dark-2'
-            >
-              Dashboard
-            </Link>
-          ) : (
-            <Link
-              href='/login'
-              className='flex h-fit w-32 rounded-md items-center justify-center bg-gradient-to-r from-yellow-dark-1 to-yellow-light-4 hover:from-yellow-light-4 hover:to-yellow-dark-1 px-4 py-2 font-secondary text-base font-medium text-white hover:bg-blue-dark-2'
-            >
-              Login
-            </Link>
-          )}
         </div>
 
         {/* Menu for mobile view */}
@@ -97,24 +101,6 @@ const Navbar = () => {
               {item.title}
             </Link>
           ))}
-
-          <div className='w-full flex justify-center'>
-            {isLoggedIn ? (
-              <Link
-                href='/login/dashboard'
-                className='flex mx-3 h-fit w-32 rounded-md items-center justify-center bg-gradient-to-r from-yellow-dark-1 to-yellow-light-4 hover:from-yellow-light-4 hover:to-yellow-dark-1 px-4 py-2 font-secondary text-base font-medium text-white hover:bg-blue-dark-2'
-              >
-                Dashboard
-              </Link>
-            ) : (
-              <Link
-                href='/login'
-                className='flex mx-3 h-fit w-32 rounded-md items-center justify-center bg-gradient-to-r from-yellow-dark-1 to-yellow-light-4 hover:from-yellow-light-4 hover:to-yellow-dark-1 px-4 py-2 font-secondary text-base font-medium text-white hover:bg-blue-dark-2'
-              >
-                Login
-              </Link>
-            )}
-          </div>
         </div>
       )}
     </section>

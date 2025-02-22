@@ -3,39 +3,49 @@ import React from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { useLogin } from './api/useLogin';
 import { PATH } from '@/shared/path';
 import toast from 'react-hot-toast';
-import Link from 'next/link';
-import { LoginInputs } from '@/types/inputs';
+import { resetPassword } from '../api/useForgetPassword';
+import usePagination from '@mui/material/usePagination/usePagination';
 
 // Define Zod schema for form validation
+const resetPasswordSchema = z
+  .object({
+    password: z.string().min(1, 'Password tidak boleh kosong.'),
+    confirmPassword: z
+      .string()
+      .min(1, 'Konfirmasi password tidak boleh kosong.'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Password tidak sama.',
+    path: ['confirmPassword'],
+  });
+
+type ResetPasswordInputs = z.infer<typeof resetPasswordSchema>;
 
 const Page = () => {
   const router = useRouter();
-  const loginSchema = z.object({
-    username: z.string().min(1, 'Username tidak boleh kosong.'),
-    password: z.string().min(1, 'Password tidak boleh kosong'),
-  });
+  const token = useParams().token as string;
 
   const {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginInputs>({
+  } = useForm<ResetPasswordInputs>({
+    resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
-      username: '',
       password: '',
+      confirmPassword: '',
     },
   });
 
   const [loading, setLoading] = React.useState<boolean>(false);
-  const mutation = useLogin({
+  const mutation = resetPassword({
     onSuccess: () => {
-      toast.success('Berhasil masuk');
-      router.push('/admin/artikel');
+      toast.success('Password berhasil direset');
+      router.push(PATH.LOGIN);
     },
     onError: (error) => {
       toast.error(error.message);
@@ -44,9 +54,10 @@ const Page = () => {
   });
 
   const onSubmit = handleSubmit(async (data) => {
-    console.log(data);
     setLoading(true);
-    await mutation.mutateAsync(data);
+    const withTokenData = { ...data, token };
+    console.log(withTokenData);
+    await mutation.mutateAsync(withTokenData);
     setLoading(false);
   });
 
@@ -61,22 +72,10 @@ const Page = () => {
             className='w-full h-full'
             alt='Login Side Design'
           />
-          <button
-            type='button'
-            onClick={() => router.push('/')}
-            className='absolute left-5 top-10 flex h-fit w-fit items-center justify-center rounded-full bg-white p-2 hover:bg-gray-100'
-          >
-            <Image
-              src='/icons/arrow-left-black.svg'
-              width={24}
-              height={24}
-              alt='Back'
-            />
-          </button>
         </div>
 
         {/* Form Login */}
-        <div className='flex flex-col gap-4 w-full md:w-2/3 items-center justify-center p-8'>
+        <div className='flex w-full md:w-2/3 items-center justify-center p-8'>
           <form
             className='flex flex-col w-full max-w-lg gap-y-8 md:gap-y-12 text-base-dark'
             onSubmit={onSubmit}
@@ -93,43 +92,19 @@ const Page = () => {
                 alt='Logo Kabinet'
               />
             </div>
-            <div className='flex w-full flex-col gap-y-2 md:gap-y-3'>
+            <div className='flex w-full flex-col gap-y-4 md:gap-y-6'>
               <h1 className='w-full font-primary text-3xl md:text-[64px] font-bold'>
-                MASUK
+                Reset Password
               </h1>
               <p className='w-full font-secondary text-sm md:text-base font-normal'>
-                Silahkan masukkan informasi untuk mengakses akun
+                Silakan masukkan pasword baru anda untuk melakukan reset password.
               </p>
             </div>
             <div className='flex flex-col gap-y-4 md:gap-y-6'>
-              {/* Username */}
+              {/* New Password */}
               <div className='flex flex-col gap-y-1'>
                 <label className='font-secondary text-lg md:text-xl font-semibold'>
-                  Username
-                </label>
-                <Controller
-                  name='username'
-                  control={control}
-                  render={({ field }) => (
-                    <input
-                      {...field}
-                      type='text'
-                      placeholder='Masukkan Username'
-                      className='mt-2 h-10 md:h-12 w-full rounded-lg border-2 border-gray-300 px-4 focus:border-blue-500 focus:outline-none'
-                    />
-                  )}
-                />
-                {errors.username && (
-                  <p className='text-red-500 text-sm'>
-                    {errors.username.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Password */}
-              <div className='flex flex-col gap-y-1'>
-                <label className='font-secondary text-lg md:text-xl font-semibold'>
-                  Password
+                  Password Baru
                 </label>
                 <Controller
                   name='password'
@@ -138,36 +113,47 @@ const Page = () => {
                     <input
                       {...field}
                       type='password'
-                      placeholder='Masukkan Password'
+                      placeholder='Masukkan password baru Anda'
                       className='mt-2 h-10 md:h-12 w-full rounded-lg border-2 border-gray-300 px-4 focus:border-blue-500 focus:outline-none'
                     />
                   )}
                 />
                 {errors.password && (
-                  <p className='text-red-500 text-sm'>
-                    {errors.password.message}
-                  </p>
+                  <p className='text-red-500 text-sm'>{errors?.password?.message}</p>
                 )}
               </div>
+              
+              {/* Confirm New Password */}
+              <div className='flex flex-col gap-y-1'>
+                <label className='font-secondary text-lg md:text-xl font-semibold'>
+                  Konfirmasi Password Baru
+                </label>
+                <Controller
+                  name='confirmPassword'
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      type='password'
+                      placeholder='Masukkan lagi password baru Anda'
+                      className='mt-2 h-10 md:h-12 w-full rounded-lg border-2 border-gray-300 px-4 focus:border-blue-500 focus:outline-none'
+                    />
+                  )}
+                />
+                {errors.confirmPassword && (
+                  <p className='text-red-500 text-sm'>{errors?.confirmPassword?.message}</p>
+                )}
+              </div>
+
             </div>
             <button
               disabled={loading}
               type='submit'
               className={`flex w-full items-center justify-center rounded-md bg-yellow-main hover:bg-yellow-500 transition-all py-2 font-secondary text-lg font-normal text-black ${loading ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              {loading ? 'Memuat...' : 'Masuk'}
+              {loading ? 'Memuat...' : 'Reset Password'}
             </button>
           </form>
-
-          <div>
-            Lupa password Anda?{' '}
-            <Link
-              href={'/forget-password'}
-              className='text-yellow-500 hover:text-yellow-600 font-semibold'
-            >
-              Reset Passsword
-            </Link>
-          </div>
         </div>
       </div>
     </main>

@@ -5,7 +5,7 @@ import { SiShopee } from 'react-icons/si';
 
 const Footer = () => {
   return (
-    <footer className='flex w-full justify-center bg-yellow-400 py-12 p-4'>
+    <footer id='kontak' className='flex w-full justify-center bg-yellow-400 py-12 p-4'>
       <div className='flex w-[1280px] flex-col gap-y-6 text-white'>
         {/* Main */}
         <div className='flex h-[248px] w-full items-start flex-col md:flex-row'>

@@ -204,14 +204,13 @@ export const prokers = [
   }
 ];
 
-
 export const navbarContent = [
   {
     title: 'Home',
     link: '/',
   },
   {
-    title: 'Berita',
+    title: 'Artikel',
     link: '/artikel',
   },
   {
@@ -229,5 +228,9 @@ export const navbarContent = [
   {
     title: 'Akademik',
     link: '/#akademik',
+  },
+  {
+    title: 'Kontak',
+    link: '/#kontak',
   },
 ];

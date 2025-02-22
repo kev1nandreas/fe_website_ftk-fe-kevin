@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Playfair_Display, Poppins } from 'next/font/google';
 import './globals.css';
+import QueryProvider from './QueryProvider';
+import { Toaster } from 'react-hot-toast';
 
 const playFair = Playfair_Display({
   subsets: ['latin'],
@@ -29,9 +31,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang='en'>
-      <head></head>
       <body className={`${playFair.variable} ${poppins.variable}`}>
-        {children}
+        <QueryProvider>
+          <Toaster position='bottom-center' />
+          {children}
+        </QueryProvider>
       </body>
     </html>
   );

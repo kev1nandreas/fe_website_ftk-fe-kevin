@@ -1,58 +1,62 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { MdSpaceDashboard } from "react-icons/md";
-import { FaUser, FaBars, FaTimes } from "react-icons/fa";
-import { TbCategoryFilled } from "react-icons/tb";
-import { BiLogOut } from "react-icons/bi";
+import React, { useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { MdSpaceDashboard } from 'react-icons/md';
+import { FaUser, FaBars, FaTimes } from 'react-icons/fa';
+import { TbCategoryFilled } from 'react-icons/tb';
+import { BiLogOut } from 'react-icons/bi';
+import { useLogout } from '@/app/login/api/useLogout';
+import toast from 'react-hot-toast';
+import { PATH } from '@/shared/path';
+import { ConfirmationLogOut } from './Confirmation';
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [role, setRole] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    const userRole = localStorage.getItem("role");
-    setRole(userRole);
-  }, []);
+  const mutation = useLogout({
+    onSuccess: () => {
+      router.push(PATH.PUBLIC_BASE);
+      toast.success('Berhasil keluar');
+    },
+    onError: () => {
+      toast.error('Gagal keluar. Silahkan coba lagi');
+      setLoading(false);
+    },
+  });
 
   const handleLogout = async () => {
-    try {
-      const response = await fetch(`/auth/logout`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-
-      if (response.ok) {
-        localStorage.clear();
-        router.push("/");
-      } else {
-        console.error("Logout failed");
-      }
-    } catch (error) {
-      console.error("An error occurred during logout:", error);
-    }
+    setLoading(true);
+    await mutation.mutateAsync();
+    setLoading(false);
   };
 
   return (
     <>
+      {/* Confirmation Log Out */}
+      {showConfirm && (
+        <ConfirmationLogOut
+          onCancel={() => setShowConfirm(false)}
+          onConfirm={handleLogout}
+        />
+      )}
+
       {/* Tombol Hamburger untuk Mobile */}
-      <div className="flex items-center justify-between bg-white px-4 py-2 sm:hidden">
+      <div className='flex items-center justify-between bg-white px-4 py-2 sm:hidden'>
         <Image
-          src="/images/logo-kabinet-secondary.png"
+          src='/icons/FTKIcon.png'
           width={40}
           height={40}
-          alt="Logo Kabinet"
+          alt='Logo Kabinet'
         />
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="text-xl text-yellow-main"
+          className='text-xl text-yellow-main'
         >
           <FaBars />
         </button>
@@ -61,89 +65,63 @@ const Sidebar = () => {
       {/* Sidebar */}
       <div
         className={`${
-          isOpen ? "block" : "hidden"
+          isOpen ? 'block' : 'hidden'
         } w-full flex-col gap-y-6 bg-white px-4 py-6 sm:relative sm:flex sm:w-1/5 sm:px-6 sm:py-10`}
       >
-        <div className="flex justify-end sm:hidden">
+        <div className='flex justify-end sm:hidden'>
           <button
             onClick={() => setIsOpen(false)}
-            className="text-xl text-yellow-main"
+            className='text-xl text-yellow-main'
           >
             <FaTimes />
           </button>
         </div>
 
         <Link
-          href="/"
-          className="flex w-full items-center justify-center gap-x-4"
+          href='/'
+          className='flex w-full items-center justify-center gap-x-4'
         >
           <Image
-            src="/icons/FTKIcon.png"
+            src='/icons/FTKIcon.png'
             width={40}
             height={40}
-            alt="Logo Kabinet"
-            className="md:w-[65px] md:h-[65px]"
+            alt='Logo Kabinet'
+            className='md:w-[65px] md:h-[65px]'
           />
-          <h1 className="w-24 font-primary text-lg font-extrabold text-base-dark sm:w-28 sm:text-xl">
+          <h1 className='w-24 font-primary text-lg font-extrabold text-base-dark sm:w-28 sm:text-xl'>
             Bentang Layar
           </h1>
         </Link>
 
-        <div className="h-full w-full">
+        <div className='h-full w-full'>
           <Link
-            href="/login/dashboard"
-            className="flex w-full items-center gap-x-3 rounded-md px-4 py-3 hover:bg-base-gray sm:gap-x-4 sm:px-5"
+            href='/admin/artikel'
+            className='flex w-full items-center gap-x-3 rounded-md px-4 py-3 hover:bg-base-gray sm:gap-x-4 sm:px-5'
           >
-            <MdSpaceDashboard className="scale-[1.5] fill-yellow-main sm:scale-[1.75]" />
-            <p className="font-secondary text-sm font-semibold text-yellow-main sm:text-lg">
+            <MdSpaceDashboard className='scale-[1.5] fill-yellow-main sm:scale-[1.75] hidden md:block' />
+            <p className='font-secondary text-sm font-semibold text-yellow-main sm:text-lg'>
               Artikel
             </p>
           </Link>
 
-          {/* {role === "admin" && ( */}
-            <Link
-              href="/login/category"
-              className="flex w-full items-center gap-x-3 rounded-md px-4 py-3 hover:bg-base-gray sm:gap-x-4 sm:px-5"
-            >
-              <TbCategoryFilled className="scale-[1.5] fill-yellow-main sm:scale-[1.75]" />
-              <p className="font-secondary text-sm font-semibold text-yellow-main sm:text-lg">
-                Kategori
-              </p>
-            </Link>
-          {/* )} */}
-
-          {role === "admin" && (
-            <Link
-              href="/login/user"
-              className="flex w-full items-center gap-x-3 rounded-md px-4 py-3 hover:bg-base-gray sm:gap-x-4 sm:px-5"
-            >
-              <FaUser className="scale-[1.5] fill-yellow-main sm:scale-[1.75]" />
-              <p className="font-secondary text-sm font-semibold text-yellow-main sm:text-lg">
-                Users
-              </p>
-            </Link>
-          )}
-
-          {role === "user" && (
-            <Link
-              href="/login/profile"
-              className="flex w-full items-center gap-x-3 rounded-md px-4 py-3 hover:bg-base-gray sm:gap-x-4 sm:px-5"
-            >
-              <FaUser className="scale-[1.5] fill-yellow-main sm:scale-[1.75]" />
-              <p className="font-secondary text-sm font-semibold text-yellow-main sm:text-lg">
-                Edit Profile
-              </p>
-            </Link>
-          )}
+          <Link
+            href='/admin/kategori'
+            className='flex w-full items-center gap-x-3 rounded-md px-4 py-3 hover:bg-base-gray sm:gap-x-4 sm:px-5'
+          >
+            <TbCategoryFilled className='scale-[1.5] fill-yellow-main sm:scale-[1.75] hidden lg:block' />
+            <p className='font-secondary text-sm font-semibold text-yellow-main sm:text-lg'>
+              Kategori
+            </p>
+          </Link>
         </div>
 
         <button
-          className="flex w-full items-center gap-x-3 rounded-md bg-yellow-main px-4 py-3 hover:bg-yellow-dark-1 sm:gap-x-4 sm:px-5"
-          onClick={handleLogout}
+          className="flex w-full items-center gap-x-3 rounded-md bg-yellow-main px-4 py-3 hover:bg-yellow-dark-1 sm:gap-x-4 sm:px-5 {loading ? 'cursor-not-allowed' : ''}"
+          onClick={() => setShowConfirm(true)}
         >
-          <BiLogOut className="scale-[1.25] fill-white sm:scale-[1.5]" />
-          <p className="font-secondary text-sm font-normal text-white sm:text-base">
-            Logout
+          <BiLogOut className='scale-[1.25] fill-white sm:scale-[1.5]' />
+          <p className='font-secondary text-sm font-normal text-white sm:text-base'>
+            Keluar
           </p>
         </button>
       </div>

@@ -14,16 +14,16 @@ export default function notFound() {
       <div className='flex flex-col items-center gap-5'>
         <h1 className='text-[8rem] font-bold'>404</h1>
         <h1 className='text-[2.5rem] md:text-[5rem] font-bold text-center'>
-          There's nothing here
+          Tidak ada apa-apa disini
         </h1>
         <h1 className='text-[1rem] font-semibold text-center'>
-          ... maybe the page you are looking for is not found or never existed.{' '}
+          ... mungkin halaman yang kamu cari telah dihapus atau tidak pernah ada
         </h1>
         <div
           onClick={handlePreviousPage}
           className='flex h-fit w-fit rounded-md items-center justify-center bg-gradient-to-r cursor-pointer from-yellow-dark-1 to-yellow-light-1 hover:from-yellow-light-1 hover:to-yellow-dark-1 px-4 py-2 font-secondary text-base font-medium text-white hover:bg-blue-dark-2'
         >
-          Back To Previous Page
+          Kembali ke halaman sebelumnya
         </div>
       </div>
     </div>
