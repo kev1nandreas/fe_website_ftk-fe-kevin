@@ -89,6 +89,27 @@ export async function patch<T>(
   }
 }
 
+export async function patchArticle<T>(
+	url: string,
+	formData: FormData,
+): Promise<Res<T>> {
+	try {
+		const response: AxiosResponse<T> = await api.patch(url, formData, {
+			headers: {
+				"Content-Type": "multipart/form-data",
+			},
+			timeout: 15000
+		});
+		return {
+			OK: true,
+			StatusCode: response.status,
+			Kind: response.data,
+		};
+	} catch (error: unknown) {
+		return handleAxiosError(error);
+	}
+}
+
 export async function del<T>(url: string): Promise<Res<T>> {
   try {
     const response: AxiosResponse<T> = await api.delete(url);
